@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>កម្មវិធីវាស់ល្បឿន & ផែនទី Live</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Khmer OS Battambang', 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        
+        /* ---------------- រចនាកុងទ័រល្បឿន ---------------- */
+        .gauge-container {
+            position: relative;
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: conic-gradient(#00ffea 0%, #333 0%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.15);
+            transition: background 0.3s ease-out, box-shadow 0.3s ease;
+            margin-bottom: 25px;
+        }
+
+        .gauge-center {
+            width: 220px;
+            height: 220px;
+            background-color: #1a1a1a;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        #speed {
+            font-size: 80px;
+            font-weight: bold;
+            color: #00ffea;
+            margin: 0;
+            transition: color 0.3s ease;
+            line-height: 1;
+            text-shadow: 0 0 10px rgba(0, 255, 234, 0.5);
+        }
+
+        .unit {
+            font-size: 18px;
+            color: #888;
+            margin-top: 5px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .warning-glow {
+            box-shadow: 0 0 50px rgba(255, 51, 51, 0.6) !important;
+        }
+
+        /* ---------------- រចនាប្រអប់ទីតាំង និងផែនទី ---------------- */
+        #info-card {
+            background: #1e1e1e;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            overflow: hidden; /* ការពារកុំឱ្យផែនទីលៀនចេញពីប្រអប់ */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .text-section {
+            padding: 15px 20px;
+            text-align: center;
+            border-bottom: 2px solid #333;
+        }
+
+        #address {
+            font-size: 15px;
+            color: #ffffff;
+            line-height: 1.5;
+            margin-bottom: 5px;
+        }
+
+        #status {
+            font-size: 13px;
+            color: #ffaa00;
+        }
+
+        /* ផែនទីនៅខាងក្រោមអក្សរផ្ទាល់ */
+        #map {
+            width: 100%;
+            height: 220px;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="gauge-container" id="gauge">
+        <div class="gauge-center">
+            <div id="speed">0</div>
+            <div class="unit">km/h</div>
+        </div>
+    </div>
+
+    <div id="info-card">
+        <div class="text-section">
+            <div id="address">📍 កំពុងស្វែងរកទីតាំង...</div>
+            <div id="status">កំពុងរង់ចាំ GPS...</div>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        const speedElement = document.getElementById('speed');
+        const statusElement = document.getElementById('status');
+        const gaugeElement = document.getElementById('gauge');
+        const addressElement = document.getElementById('address');
+
+        const MAX_SPEED = 160; 
+        let lastGeocodeTime = 0;
+        let map, marker; 
+
+        if ('geolocation' in navigator) {
+            const options = {
+                enableHighAccuracy: true, 
+                maximumAge: 0, 
+                timeout: 5000 
+            };
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    let speedMps = position.coords.speed;
+                    let lat = position.coords.latitude;
+                    let lon = position.coords.longitude;
+                    
+                    // ១. ធ្វើបច្ចុប្បន្នភាពល្បឿន
+                    if (speedMps === null || speedMps === 0) {
+                        updateUI(0);
+                        statusElement.innerText = "កំពុងឈប់ / ស្វែងរកផ្កាយរណប";
+                        statusElement.style.color = "#ffaa00";
+                    } else {
+                        let speedKmh = (speedMps * 3.6).toFixed(1);
+                        updateUI(speedKmh);
+                        statusElement.innerText = "● GPS ដំណើរការ Live";
+                        statusElement.style.color = "#00ffea";
+                    }
+
+                    // ២. ធ្វើបច្ចុប្បន្នភាពផែនទី Live
+                    if (!map) {
+                        // បង្កើតផែនទីលើកដំបូង
+                        map = L.map('map').setView([lat, lon], 16); 
+                        
+                        // ប្រើ Dark Mode Map ដើម្បីសន្សំសំចៃថ្មទូរស័ព្ទ និងកុំឱ្យចាំងភ្នែក
+                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                            attribution: '&copy; OpenStreetMap',
+                            maxZoom: 20
+                        }).addTo(map);
+
+                        marker = L.marker([lat, lon]).addTo(map);
+                    } else {
+                        // រំកិលផែនទីតាមទីតាំងថ្មី
+                        map.setView([lat, lon]);
+                        marker.setLatLng([lat, lon]);
+                    }
+
+                    // ៣. ទាញយកឈ្មោះទីតាំងជាអក្សរខ្មែរ (ធ្វើរៀងរាល់ ១៥ វិនាទី)
+                    let currentTime = Date.now();
+                    if (currentTime - lastGeocodeTime > 15000) {
+                        lastGeocodeTime = currentTime;
+                        getLocationName(lat, lon);
+                    }
+                },
+                (error) => {
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            statusElement.innerText = "⚠️ សូម Allow Location ក្នុង Browser";
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            statusElement.innerText = "⚠️ អត់សេវា GPS ទេ (សូមទៅទីវាល)";
+                            break;
+                        case error.TIMEOUT:
+                            statusElement.innerText = "⚠️ ផុតកំណត់ពេលស្វែងរក";
+                            break;
+                    }
+                    statusElement.style.color = "#ff3333";
+                    updateUI(0);
+                },
+                options
+            );
+        } else {
+            statusElement.innerText = "ឧបករណ៍របស់អ្នកមិនគាំទ្រ GPS ទេ";
+            statusElement.style.color = "#ff3333";
+        }
+
+        // មុខងារបំប្លែង GPS ទៅជាឈ្មោះទីតាំង
+        function getLocationName(lat, lon) {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=km`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        let parts = data.display_name.split(", ");
+                        let shortAddress = parts.slice(0, 3).join(", "); 
+                        addressElement.innerText = "📍 " + shortAddress;
+                    }
+                })
+                .catch(() => {
+                    addressElement.innerText = "📍 មិនអាចភ្ជាប់ទៅកាន់ប្រព័ន្ធទីតាំងបានទេ";
+                });
+        }
+
+        // មុខងារដូរពណ៌កុងទ័រ (ខៀវ -> លឿងទុំ -> ក្រហម)
+        function updateUI(speed) {
+            speedElement.innerText = speed;
+            let percentage = Math.min((speed / MAX_SPEED) * 100, 100);
+            let color = "#00ffea"; 
+
+            if (speed >= 80) {
+                color = "#ff3333"; 
+                gaugeElement.classList.add("warning-glow");
+                speedElement.style.textShadow = "0 0 20px rgba(255, 51, 51, 0.8)";
+            } else if (speed >= 50) {
+                color = "#ffaa00"; 
+                gaugeElement.classList.remove("warning-glow");
+                gaugeElement.style.boxShadow = "0 0 30px rgba(255, 170, 0, 0.3)";
+                speedElement.style.textShadow = "0 0 15px rgba(255, 170, 0, 0.6)";
+            } else {
+                gaugeElement.classList.remove("warning-glow");
+                gaugeElement.style.boxShadow = "0 0 30px rgba(0, 255, 255, 0.15)";
+                speedElement.style.textShadow = "0 0 10px rgba(0, 255, 234, 0.5)";
+            }
+
+            speedElement.style.color = color;
+            gaugeElement.style.background = `conic-gradient(${color} ${percentage}%, #333 ${percentage}%)`;
+        }
+    </script>
+
+</body>
+</html>
