@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ប្រព័ន្ធគ្រប់គ្រង និងគណនាថ្លៃដឹកជញ្ជូនស៊ីម៉ង់ត៍</title>
+  
+  <!-- External Libraries for Export Excel & PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
     body { background-color: #f1f5f9; color: #0f172a; padding: 20px; line-height: 1.5; }
@@ -17,24 +22,27 @@
     @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
 
     .card { background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-    .card-title { font-size: 16px; font-weight: 700; color: #1d4ed8; border-bottom: 2px solid #eff6ff; padding-bottom: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .card-title { font-size: 16px; font-weight: 700; color: #1d4ed8; border-bottom: 2px solid #eff6ff; padding-bottom: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 500px) { .form-grid { grid-template-columns: 1fr; } }
 
     .form-group { margin-bottom: 10px; }
-    .form-group.full { grid-column: 1 / -1; }
     label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 4px; }
     input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; }
     input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
 
     .btn { background: #2563eb; color: #ffffff; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; transition: background 0.2s; margin-top: 10px; }
     .btn:hover { background: #1d4ed8; }
-    .btn-secondary { background: #059669; }
-    .btn-secondary:hover { background: #047857; }
-    .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; padding: 6px 12px; font-size: 12px; border-radius: 6px; cursor: pointer; }
-    .btn-outline:hover { background: #f8fafc; }
-    .btn-danger { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    
+    .btn-excel { background: #10b981; color: white; border: none; padding: 8px 12px; font-size: 13px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .btn-excel:hover { background: #059669; }
+
+    .btn-pdf { background: #ef4444; color: white; border: none; padding: 8px 12px; font-size: 13px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .btn-pdf:hover { background: #dc2626; }
+
+    .btn-danger { background: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .btn-danger:hover { background: #475569; }
 
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; }
     .stat-card { background: #ffffff; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04); border-top: 4px solid #cbd5e1; }
@@ -53,18 +61,12 @@
     .text-purple { color: #8b5cf6; }
 
     .table-card { background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-    .table-actions { display: flex; gap: 10px; }
+    .table-actions { display: flex; gap: 8px; }
     .table-responsive { overflow-x: auto; margin-top: 15px; }
     table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
     th { background: #f8fafc; color: #475569; padding: 12px; font-weight: 700; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
     td { padding: 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
     tr:hover { background: #f8fafc; }
-
-    @media print {
-      .grid, .btn, .table-actions, .del-btn { display: none !important; }
-      body { background: white; padding: 0; }
-      .card, .table-card { box-shadow: none; border: 1px solid #ddd; }
-    }
   </style>
 </head>
 <body>
@@ -150,19 +152,19 @@
     </div>
   </div>
 
-  <!-- Section 4: History Table & Actions -->
-  <div class="table-card">
+  <!-- Section 4: History Table & Report -->
+  <div class="table-card" id="reportArea">
     <div class="card-title">
       <span>៣. ប្រវត្តិ និងរបាយការណ៍ដឹកជញ្ជូន</span>
       <div class="table-actions">
-        <button onclick="exportCSV()" class="btn-outline">📥 ទាញយកជា Excel (CSV)</button>
-        <button onclick="window.print()" class="btn-outline">🖨️ បោះពុម្ព</button>
-        <button onclick="clearAllData()" class="btn-danger">លុបទាំងអស់</button>
+        <button onclick="exportExcel()" class="btn-excel">📊 ទាញយកជា Excel (.xlsx)</button>
+        <button onclick="exportPDF()" class="btn-pdf">📄 ទាញយកជា PDF</button>
+        <button onclick="clearAllData()" class="btn-danger">លុបទិន្នន័យ</button>
       </div>
     </div>
 
     <div class="table-responsive">
-      <table>
+      <table id="reportTable">
         <thead>
           <tr>
             <th>កាលបរិច្ឆេទ</th>
@@ -172,7 +174,7 @@
             <th>ចំណូល</th>
             <th>ចំណាយ</th>
             <th>ចំណេញសុទ្ធ</th>
-            <th class="del-btn">សកម្មភាព</th>
+            <th class="del-col">សកម្មភាព</th>
           </tr>
         </thead>
         <tbody id="historyTable">
@@ -184,12 +186,11 @@
 </div>
 
 <script>
-  const STORAGE_KEY = 'cement_transport_data_v1';
+  const STORAGE_KEY = 'cement_transport_data_v2';
   let records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 
   const form = document.getElementById('transportForm');
 
-  // Load initial data on page load
   document.addEventListener('DOMContentLoaded', updateUI);
 
   form.addEventListener('submit', function(e) {
@@ -244,7 +245,7 @@
     if (records.length === 0) {
       historyTable.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#94a3b8; padding:20px;">មិនទាន់មានទិន្នន័យនៅឡើយទេ</td></tr>';
     } else {
-      records.forEach((item, index) => {
+      records.forEach((item) => {
         totalRev += item.revenue;
         totalExp += item.totalExpense;
         totalProf += item.profit;
@@ -259,13 +260,12 @@
           <td class="text-blue">$${item.revenue.toFixed(2)}</td>
           <td class="text-orange">$${item.totalExpense.toFixed(2)}</td>
           <td class="${item.profit >= 0 ? 'text-green' : 'text-red'}" style="font-weight:bold;">$${item.profit.toFixed(2)}</td>
-          <td class="del-btn"><button onclick="deleteRecord(${item.id})" style="color:#ef4444; border:none; background:none; cursor:pointer; font-weight:bold;">លុប</button></td>
+          <td class="del-col"><button onclick="deleteRecord(${item.id})" style="color:#ef4444; border:none; background:none; cursor:pointer; font-weight:bold;">លុប</button></td>
         `;
         historyTable.appendChild(row);
       });
     }
 
-    // Update Summary Dashboard
     document.getElementById('totalRevenueDisplay').innerText = '$' + totalRev.toFixed(2);
     document.getElementById('totalExpenseDisplay').innerText = '$' + totalExp.toFixed(2);
     
@@ -291,26 +291,56 @@
     }
   }
 
-  function exportCSV() {
+  // 1. Function Export Excel Native (.xlsx)
+  function exportExcel() {
     if (records.length === 0) {
-      alert('គ្មានទិន្នន័យសម្រាប់ Export ទេ!');
+      alert('គ្មានទិន្នន័យសម្រាប់ទាញយកទេ!');
       return;
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Date,Factory,Destination,Distance (KM),Weight (Tons),Revenue ($),Expense ($),Profit ($)\n";
+    const excelData = records.map(r => ({
+      'កាលបរិច្ឆេទ': r.date,
+      'រោងចក្រ': r.factory,
+      'គោលដៅ': r.destination,
+      'ចម្ងាយ (KM)': r.distance,
+      'ទម្ងន់ (តោន)': r.weight,
+      'ចំណូល ($)': r.revenue,
+      'ចំណាយ ($)': r.totalExpense,
+      'ចំណេញសុទ្ធ ($)': r.profit
+    }));
 
-    records.forEach(r => {
-      csvContent += `"${r.date}","${r.factory}","${r.destination}",${r.distance},${r.weight},${r.revenue},${r.totalExpense},${r.profit}\n`;
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Transport Report");
+
+    XLSX.writeFile(workbook, "Cement_Transport_Report.xlsx");
+  }
+
+  // 2. Function Export PDF Clean Page
+  function exportPDF() {
+    if (records.length === 0) {
+      alert('គ្មានទិន្នន័យសម្រាប់ទាញយកទេ!');
+      return;
+    }
+
+    const element = document.getElementById('reportArea');
+    
+    // លាក់ប៊ូតុងសកម្មភាពបណ្តោះអាសន្នពេល export
+    const actions = document.querySelectorAll('.table-actions, .del-col');
+    actions.forEach(el => el.style.display = 'none');
+
+    const opt = {
+      margin:       0.5,
+      filename:     'Cement_Transport_Report.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+      // បង្ហាញប៊ូតុងមកវិញ
+      actions.forEach(el => el.style.display = '');
     });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "cement_transport_report.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   }
 </script>
 
