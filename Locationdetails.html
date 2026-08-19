@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ស្វែងរកទីតាំងតាម GPS</title>
+    <!-- ប្រើប្រាស់ Google Font ភាសាខ្មែរ -->
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600&display=swap" rel="stylesheet">
     
     <style>
@@ -15,7 +16,6 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            padding: 15px;
         }
         .container {
             background: #ffffff;
@@ -23,63 +23,32 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 450px;
+            max-width: 420px;
         }
         h2 {
             text-align: center;
             color: #2c3e50;
-            margin-bottom: 15px;
-            font-size: 20px;
-        }
-        .tabs {
-            display: flex;
-            gap: 5px;
             margin-bottom: 20px;
-            border-bottom: 2px solid #eee;
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 8px 5px;
-            background: none;
-            border: none;
-            border-bottom: 3px solid transparent;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 600;
-            color: #666;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        .tab-btn.active {
-            color: #007bff;
-            border-bottom-color: #007bff;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
         }
         .input-group {
             margin-bottom: 15px;
         }
         label {
             display: block;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             color: #333;
             font-weight: 600;
-            font-size: 14px;
         }
         input {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #ccc;
             border-radius: 6px;
             box-sizing: border-box;
-            font-size: 14px;
+            font-size: 15px;
             font-family: inherit;
         }
-        .search-btn {
+        button {
             width: 100%;
             padding: 12px;
             background-color: #007bff;
@@ -91,9 +60,8 @@
             cursor: pointer;
             transition: background 0.3s;
             font-family: inherit;
-            margin-top: 10px;
         }
-        .search-btn:hover {
+        button:hover {
             background-color: #0056b3;
         }
         .result-box {
@@ -108,7 +76,6 @@
             margin-bottom: 8px;
             color: #2c3e50;
             line-height: 1.5;
-            font-size: 14px;
         }
         .result-item strong {
             color: #000;
@@ -125,42 +92,13 @@
 
 <div class="container">
     <h2>ស្វែងរកទីតាំងតាម GPS</h2>
-
-    <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab(1)">ទម្រង់ទី១ (បែកគ្នា)</button>
-        <button class="tab-btn" onclick="switchTab(2)">ទម្រង់ទី២ (រួមគ្នា)</button>
-        <button class="tab-btn" onclick="switchTab(3)">ទម្រង់ទី៣ (Link)</button>
+    
+    <div class="input-group">
+        <label for="coords">បញ្ចូលកូអរដោនេ (Lat, Lon):</label>
+        <input type="text" id="coords" placeholder="ឧទាហរណ៍: 11.5564, 104.9282">
     </div>
-
-    <!-- ទម្រង់ទី ១ -->
-    <div id="tab1" class="tab-content active">
-        <div class="input-group">
-            <label for="lat">Latitude (រយៈទទឹង):</label>
-            <input type="number" id="lat" step="any" placeholder="ឧទាហរណ៍: 11.5564">
-        </div>
-        <div class="input-group">
-            <label for="lon">Longitude (រយៈបណ្ដោយ):</label>
-            <input type="number" id="lon" step="any" placeholder="ឧទាហរណ៍: 104.9282">
-        </div>
-    </div>
-
-    <!-- ទម្រង់ទី ២ -->
-    <div id="tab2" class="tab-content">
-        <div class="input-group">
-            <label for="coords">កូអរដោនេ (Lat, Lon):</label>
-            <input type="text" id="coords" placeholder="ឧទាហរណ៍: 11.5564, 104.9282">
-        </div>
-    </div>
-
-    <!-- ទម្រង់ទី ៣ -->
-    <div id="tab3" class="tab-content">
-        <div class="input-group">
-            <label for="mapLink">Link Share ពី Google Maps:</label>
-            <input type="text" id="mapLink" placeholder="Paste Link ឧទាហរណ៍: https://maps.app.goo.gl/...">
-        </div>
-    </div>
-
-    <button class="search-btn" onclick="processSearch()">ស្វែងរកទីតាំង</button>
+    
+    <button onclick="getLocation()">ស្វែងរកទីតាំង</button>
 
     <div id="loading" class="loading">កំពុងស្វែងរកទិន្នន័យ...</div>
 
@@ -175,114 +113,31 @@
 </div>
 
 <script>
-// ជំនួស URL ខាងក្រោមដោយ Web App URL របស់ Google Apps Script របស់អ្នក
-const GOOGLE_SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+async function getLocation() {
+    const coordsInput = document.getElementById('coords').value.trim();
+    const resultBox = document.getElementById('result');
+    const loading = document.getElementById('loading');
 
-let currentTab = 1;
-
-function switchTab(tabNum) {
-    currentTab = tabNum;
-    document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
-        btn.classList.toggle('active', idx + 1 === tabNum);
-    });
-    document.querySelectorAll('.tab-content').forEach((content, idx) => {
-        content.classList.toggle('active', idx + 1 === tabNum);
-    });
-    document.getElementById('result').style.display = 'none';
-}
-
-function extractCoords(text) {
-    if (!text) return null;
-
-    const decoded = decodeURIComponent(text);
-
-    let match = decoded.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (match) return { lat: match[1], lon: match[2] };
-
-    match = decoded.match(/center=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/);
-    if (match) return { lat: match[1], lon: match[2] };
-
-    match = decoded.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-    if (match) return { lat: match[1], lon: match[2] };
-
-    match = decoded.match(/(?:q=|ll=)(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
-    if (match) return { lat: match[1], lon: match[2] };
-
-    match = decoded.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
-    if (match) return { lat: match[1], lon: match[2] };
-
-    return null;
-}
-
-async function processSearch() {
-    let lat = null;
-    let lon = null;
-
-    if (currentTab === 1) {
-        lat = document.getElementById('lat').value.trim();
-        lon = document.getElementById('lon').value.trim();
-        if (!lat || !lon) {
-            alert('សូមបញ្ចូល Latitude និង Longitude!');
-            return;
-        }
-    } 
-    else if (currentTab === 2) {
-        const coords = document.getElementById('coords').value.trim();
-        const extracted = extractCoords(coords);
-        if (extracted) {
-            lat = extracted.lat;
-            lon = extracted.lon;
-        } else {
-            alert('ទម្រង់មិនត្រឹមត្រូវ! សូមបញ្ចូលឧទាហរណ៍: 11.5564, 104.9282');
-            return;
-        }
-    } 
-    else if (currentTab === 3) {
-        let link = document.getElementById('mapLink').value.trim();
-        if (!link) {
-            alert('សូមបញ្ចូល Link Google Maps!');
-            return;
-        }
-
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('result').style.display = 'none';
-
-        let extracted = extractCoords(link);
-
-        if (!extracted && GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_URL !== "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
-            try {
-                const proxyUrl = `${GOOGLE_SCRIPT_URL}?url=${encodeURIComponent(link)}`;
-                const res = await fetch(proxyUrl);
-                const data = await res.json();
-
-                if (data.html) {
-                    extracted = extractCoords(data.html);
-                }
-            } catch (e) {
-                console.error("Proxy Fetch Error:", e);
-            }
-        }
-
-        if (extracted) {
-            lat = extracted.lat;
-            lon = extracted.lon;
-        } else {
-            document.getElementById('loading').style.display = 'none';
-            alert('មិនអាចទាញយកកូអរដោនេពី Link នេះបានទេ! សូមពិនិត្យមើល Link ឬដំឡើង Google Apps Script ឱ្យបានត្រឹមត្រូវ។');
-            return;
-        }
+    if (!coordsInput) {
+        alert('សូមបញ្ចូលកូអរដោនេ GPS!');
+        return;
     }
 
-    fetchAddress(lat, lon);
-}
+    // បំបែកអត្ថបទដោយប្រើសញ្ញាក្បៀស (,) ឬដកឃ្លា (space)
+    const coordsArr = coordsInput.split(/[\s,]+/);
 
-async function fetchAddress(lat, lon) {
-    const loading = document.getElementById('loading');
-    const resultBox = document.getElementById('result');
+    if (coordsArr.length < 2 || !coordsArr[0] || !coordsArr[1]) {
+        alert('ទម្រង់កូអរដោនេមិនត្រឹមត្រូវ! សូមបញ្ចូលតាមទម្រង់: 11.5564, 104.9282');
+        return;
+    }
+
+    const lat = coordsArr[0];
+    const lon = coordsArr[1];
 
     loading.style.display = 'block';
     resultBox.style.display = 'none';
 
+    // ហៅ API ដោយកំណត់ភាសាជាខ្មែរ (accept-language=km)
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=km`;
 
     try {
@@ -298,6 +153,7 @@ async function fetchAddress(lat, lon) {
 
         const addr = data.address || {};
 
+        // បង្ហាញទិន្នន័យតាមជួរ
         document.getElementById('village').innerText = addr.village || addr.hamlet || addr.neighbourhood || 'មិនមានទិន្នន័យ';
         document.getElementById('commune').innerText = addr.suburb || addr.quarter || addr.commune || addr.township || 'មិនមានទិន្នន័យ';
         document.getElementById('district').innerText = addr.district || addr.city_district || addr.county || 'មិនមានទិន្នន័យ';
@@ -308,7 +164,7 @@ async function fetchAddress(lat, lon) {
 
     } catch (error) {
         loading.style.display = 'none';
-        alert('មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!');
+        alert('មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត!');
     }
 }
 </script>
