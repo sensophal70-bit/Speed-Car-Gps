@@ -175,6 +175,9 @@
 </div>
 
 <script>
+// ដាក់ Google Apps Script Web App URL របស់អ្នកនៅទីនេះ
+const GOOGLE_SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+
 let currentTab = 1;
 
 function switchTab(tabNum) {
@@ -211,23 +214,6 @@ function extractCoords(text) {
     return null;
 }
 
-async function unshortenUrl(shortUrl) {
-    // ប្រើប្រាស់ Unshorten API ដើម្បីបកប្រែ Link ខ្លីទៅជា Link ពេញ
-    const apiUrl = `https://unshorten.me/api/v2/unshorten?url=${encodeURIComponent(shortUrl)}`;
-    
-    try {
-        const res = await fetch(apiUrl);
-        const data = await res.json();
-        
-        if (data && data.success && data.unshortened_url) {
-            return data.unshortened_url;
-        }
-    } catch (e) {
-        console.error("Unshorten API error", e);
-    }
-    return null;
-}
-
 async function processSearch() {
     let lat = null;
     let lon = null;
@@ -261,14 +247,17 @@ async function processSearch() {
         document.getElementById('loading').style.display = 'block';
         document.getElementById('result').style.display = 'none';
 
-        // ស្វែងរកកូអរដោនេដោយផ្ទាល់ បើជា Link វែង
         let extracted = extractCoords(link);
 
-        // បើជា Link ខ្លី ត្រូវ Unshorten តាម API ជាមុន
-        if (!extracted && (link.includes('goo.gl') || link.includes('maps.app.goo.gl'))) {
-            const longUrl = await unshortenUrl(link);
-            if (longUrl) {
-                extracted = extractCoords(longUrl);
+        if (!extracted && GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_URL !== "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
+            try {
+                const res = await fetch(`${GOOGLE_SCRIPT_URL}?url=${encodeURIComponent(link)}`);
+                const data = await res.json();
+                
+                if (data.finalUrl) extracted = extractCoords(data.finalUrl);
+                if (!extracted && data.html) extracted = extractCoords(data.html);
+            } catch (e) {
+                console.error("Script proxy error:", e);
             }
         }
 
@@ -277,7 +266,7 @@ async function processSearch() {
             lon = extracted.lon;
         } else {
             document.getElementById('loading').style.display = 'none';
-            alert('មិនអាចទាញយកកូអរដោនេពី Link នេះបានទេ! សូមប្រើប្រាស់ទម្រង់ទី២ ដោយ Paste លេខកូអរដោនេ (ឧទាហរណ៍៖ 11.5564, 104.9282)។');
+            alert('មិនអាចទាញយកកូអរដោនេពី Link នេះបានទេ! សូមពិនិត្យមើលម្ដងទៀត ឬប្រើទម្រង់ទី២។');
             return;
         }
     }
